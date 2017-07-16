@@ -1,7 +1,6 @@
 module.exports = webpackHotMiddleware;
 
 var helpers = require('./helpers');
-var errorOverlayMiddleware = require('react-error-overlay/middleware');
 var pathMatch = helpers.pathMatch;
 
 function webpackHotMiddleware(compiler, opts) {
@@ -26,7 +25,6 @@ function webpackHotMiddleware(compiler, opts) {
   var middleware = function(req, res, next) {
     if (!pathMatch(req.url, opts.path)) return next();
     eventStream.handler(req, res);
-    errorOverlayMiddleware()(req, res, next);
     if (latestStats) {
       // Explicitly not passing in `log` fn as we don't want to log again on
       // the server
