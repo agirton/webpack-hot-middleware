@@ -1,6 +1,7 @@
 module.exports = webpackHotMiddleware;
 
 var helpers = require('./helpers');
+var errorOverlayMiddleware = require('react-error-overlay/middleware');
 var pathMatch = helpers.pathMatch;
 
 function webpackHotMiddleware(compiler, opts) {
@@ -12,23 +13,24 @@ function webpackHotMiddleware(compiler, opts) {
   var eventStream = createEventStream(opts.heartbeat);
   var latestStats = null;
 
-  compiler.plugin("compile", function() {
+  compiler.plugin('compile', function() {
     latestStats = null;
-    if (opts.log) opts.log("webpack building...");
-    eventStream.publish({action: "building"});
+    if (opts.log) opts.log('webpack building...');
+    eventStream.publish({ action: 'building' });
   });
-  compiler.plugin("done", function(statsResult) {
+  compiler.plugin('done', function(statsResult) {
     // Keep hold of latest stats so they can be propagated to new clients
     latestStats = statsResult;
-    publishStats("built", latestStats, eventStream, opts.log);
+    publishStats('built', latestStats, eventStream, opts.log);
   });
   var middleware = function(req, res, next) {
     if (!pathMatch(req.url, opts.path)) return next();
     eventStream.handler(req, res);
+    errorOverlayMiddleware()(req, res, next);
     if (latestStats) {
       // Explicitly not passing in `log` fn as we don't want to log again on
       // the server
-      publishStats("sync", latestStats, eventStream);
+      publishStats('sync', latestStats, eventStream);
     }
   };
   middleware.publish = eventStream.publish;
@@ -45,7 +47,7 @@ function createEventStream(heartbeat) {
   }
   setInterval(function heartbeatTick() {
     everyClient(function(client) {
-      client.write("data: \uD83D\uDC93\n\n");
+      client.write('data: \uD83D\uDC93\n\n');
     });
   }, heartbeat).unref();
   return {
@@ -55,7 +57,7 @@ function createEventStream(heartbeat) {
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'text/event-stream;charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
         // While behind nginx, event stream should not be buffered:
         // http://nginx.org/docs/http/ngx_http_proxy_module.html#proxy_buffering
         'X-Accel-Buffering': 'no'
@@ -63,13 +65,13 @@ function createEventStream(heartbeat) {
       res.write('\n');
       var id = clientId++;
       clients[id] = res;
-      req.on("close", function(){
+      req.on('close', function() {
         delete clients[id];
       });
     },
     publish: function(payload) {
       everyClient(function(client) {
-        client.write("data: " + JSON.stringify(payload) + "\n\n");
+        client.write('data: ' + JSON.stringify(payload) + '\n\n');
       });
     }
   };
@@ -80,8 +82,14 @@ function publishStats(action, statsResult, eventStream, log) {
   var bundles = extractBundles(statsResult.toJson({ errorDetails: false }));
   bundles.forEach(function(stats) {
     if (log) {
-      log("webpack built " + (stats.name ? stats.name + " " : "") +
-        stats.hash + " in " + stats.time + "ms");
+      log(
+        'webpack built ' +
+          (stats.name ? stats.name + ' ' : '') +
+          stats.hash +
+          ' in ' +
+          stats.time +
+          'ms'
+      );
     }
     eventStream.publish({
       name: stats.name,
